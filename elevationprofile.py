@@ -2,6 +2,7 @@
 
 from flask import Flask
 from flask import jsonify
+from flask import request
 app = Flask(__name__)
 
 
@@ -12,19 +13,96 @@ from shapely.geometry import asLineString
 from shapely.geometry import LineString
 from shapely.geometry import Point
 from shapely import wkt
+from shapely.ops import linemerge
 
+import json
 import geojson
 import numpy as np
 import pyproj
 import random
 
-@app.route("/")
-def hello():
-    return "Ingenting her!"
+
+
+from flask import Flask, request, redirect, jsonify, make_response
+
+
+"""
+@app.route('/elevationprofile.kml', methods = ['POST'])
+def elevation_profile_wkt():
     
+    if request.headers['Content-Type'] == 'text/plain':
+        
+        try:
+            linestrings = wkt.loads(request.data)
+        except:
+            return "Ikke gyldig KML"
+        
+        return calcElevProfile(linestrings)
+        
+    else:
+        return "Feil format!"  
+
+@app.route('/elevationprofile.gpx', methods = ['POST'])
+def elevation_profile_wkt():
     
-@app.route("/elevationprofile")
+    if request.headers['Content-Type'] == 'text/plain':
+        
+        try:
+            linestrings = wkt.loads(request.data)
+        except:
+            return "Ikke gyldig GPX"
+        
+        return calcElevProfile(linestrings)
+        
+    else:
+        return "Feil format!"    
+"""
+
+@app.route('/elevationprofile.wkt', methods = ['POST'])
+def elevation_profile_wkt():
+    
+    if request.headers['Content-Type'] == 'text/plain':
+        
+        try:
+            linestring = wkt.loads(request.data)
+        except:
+            return "Ikke gyldig WKT"
+            
+        return calcElevProfile(linestring)
+        
+    else:
+        return "Feil format!"    
+
+
+@app.route('/elevationprofile.json', methods = ['POST'])
 def elevation_profile_json():
+    
+    if request.headers['Content-Type'] == 'application/x-www-form-urlencoded; charset=UTF-8':
+        try:
+            multilinestrings = shape(geojson.loads(str(request.form.keys()[0])))
+            linestring = multilinestrings[0] #linemerge(multilinestrings)
+        except:
+            return "Ikke gyldig GeoJSON"
+        
+        res = make_response(calcElevProfile(linestring))
+        res.headers['Access-Control-Allow-Origin']='*'
+        res.headers['Access-Control-Allow-Methods']='GET,POST,OPTIONS'
+        res.headers['Access-Control-Allow-Headers']='content-type'
+        return res
+        
+    elif request.headers['Content-Type'] == 'application/json':   
+        try:
+            linestring = shape(request.json)
+        except:
+            return "Ikke gyldig GeoJSON"
+        return calcElevProfile(linestring)
+    else:
+        return "Feil format!"    
+        
+
+
+@app.route("/elevationprofile.test")
+def elevation_profile_test():
   
     # Test code to test custom linestring
     lon = 11.21889
@@ -36,69 +114,48 @@ def elevation_profile_json():
     x1, y1 = pyproj.transform(fromProj, toProj, lon, lat)
     x2, y2 = pyproj.transform(fromProj, toProj, lon2, lat2)
     linestrings = LineString([(x1, y1), (x2, y2)])
-    
-    
-    geojson = ""
-    
-    newLinstrings = wkt.loads(linestrings.wkt)
-    if(newLinstrings.geom_type == "MultiLineString"):
-        """
-        print "Antall linestrings: " , len(newLinstrings)
-        
-        if newLinstrings.is_simple:
-            print "Linje med opphold"
-        elif newLinstrings.is_ring:
-            print "Linje med ringer"
-        else:
-            print "Linje med forgreininger"
-            print newLinstrings[0].length
-            print newLinstrings[1].length
-            print newLinstrings[2].length
-            print newLinstrings[3].length
-            print str(newLinstrings[2].intersects(newLinstrings[0]))
-            print str(newLinstrings[2].intersects(newLinstrings[1]))
-            print str(newLinstrings[2].intersects(newLinstrings[2]))
-            print str(newLinstrings[2].intersects(newLinstrings[3]))
 
+    return calcElevProfile(linestrings)
+
+   
+## Start calculation and creates geojson result    
+def calcElevProfile(linestrings):
+    
+    print "calcElevProfile"
+    
+    # Array holding information used in graph
+    distArray = []
+    elevArray = []
+    pointX = []
+    pointY = []
         
-        #elevationRaster =  createMultiLineGraph(linestrings)
-        geojson = ""
-        return json.dumps(geojson)
-        """
-        return "Multilinestring are currently not supported!"
-    else:
-        # Array holding information used in graph
-        distArray = []
-        elevArray = []
-        pointX = []
-        pointY = []
+    # Calculate elevations
+    distArray, elevArray, pointX, pointY = calcElev(linestrings)  
         
-        # Calculate elevations
-        distArray, elevArray, pointX, pointY = calcElev(linestrings)  
+    # Smooth graph
+    elevArray = smoothList(elevArray, 7)  
         
-        # Smooth graph
-        elevArray = smoothList(elevArray, 7)  
+    # Make sure we start at lowest point on relation
+    # Reverse array if last elevation is lower than first elevation
+    if(elevArray[0]>elevArray[len(elevArray)-1]):
+        elevArray = elevArray[::-1]
         
-        # Make sure we start at lowest point on relation
-        # Reverse array if last elevation is lower than first elevation
-        if(elevArray[0]>elevArray[len(elevArray)-1]):
-            elevArray = elevArray[::-1]
+    features = []
+    for i in range(len(elevArray)):
+        geom = {'type': 'Point', 'coordinates': [pointX[i],pointY[i]]}
+        feature = {'type': 'Feature',
+                   'geometry': geom,
+                   'crs': {'type': 'EPSG', 'properties': {'code':'900913'}},
+                   'properties': {'distance': str(distArray[i]), 'elev': str(elevArray[i])}
+                   }
+        features.append(feature);
         
-        features = []
-        for i in range(len(elevArray)):
-            geom = {'type': 'Point', 'coordinates': [pointX[i],pointY[i]]}
-            feature = {'type': 'Feature',
-                       'geometry': geom,
-                       'crs': {'type': 'EPSG', 'properties': {'code':'900913'}},
-                       'properties': {'distance': str(distArray[i]), 'elev': str(elevArray[i])}
-                       }
-            features.append(feature);
-        
-        geojson = {'type': 'FeatureCollection',
-                   'features': features}
+    geojson = {'type': 'FeatureCollection',
+               'features': features}
 
     return jsonify(geojson)
-  
+    
+      
 #
 # Code from http://stackoverflow.com/questions/5515720/python-smooth-time-series-data
 #
@@ -372,7 +429,8 @@ def calcElev(linestring):
     # Extract one array for lon and one for lat
     lon, lat = zip(*ag)
     # Define projections
-    fromProj = pyproj.Proj(init='epsg:3785')
+    #fromProj = pyproj.Proj(init='epsg:3785')
+    fromProj = pyproj.Proj(init='epsg:4326')
     toProj = pyproj.Proj(init='epsg:32633')
     # Reproject the line
     x2, y2 = pyproj.transform(fromProj, toProj, lon, lat)
@@ -380,6 +438,7 @@ def calcElev(linestring):
     a = np.array(zip(x2,y2))
     # Recreate linestring
     projectedLinestrings = asLineString(a)
+    #print projectedLinestrings.length
     print "Slutt transformering..."
     #
     # Set distance for interpolation on line according to length of route
@@ -413,7 +472,8 @@ def calcElev(linestring):
             while step<linestring.length+stepDist:
                 point =  linestring.interpolate(step)
                 # Project back to spherical mercator coordinates
-                x, y = pyproj.transform(toProj, fromProj, point.x, point.y)
+                x, y = pyproj.transform(toProj, pyproj.Proj(init='epsg:3785'), point.x, point.y)
+                #x, y = point.x, point.y
                 pointArrayX.append(x)
                 pointArrayY.append(y)
                 distArray.append(step)
@@ -423,7 +483,8 @@ def calcElev(linestring):
         while step<projectedLinestrings.length+stepDist:
             point =  projectedLinestrings.interpolate(step)
             # Project back to spherical mercator coordinates
-            x, y = pyproj.transform(toProj, fromProj, point.x, point.y)
+            x, y = pyproj.transform(toProj, pyproj.Proj(init='epsg:3785'), point.x, point.y)
+            #x, y = point.x, point.y
             pointArrayX.append(x)
             pointArrayY.append(y)
             distArray.append(step)
@@ -439,15 +500,38 @@ def calcElev(linestring):
         pointArrayY.append(y)
         distArray.append(projectedLinestrings.project(point))
     """
+    
+    #
+    # Convert line to spherical mercator
+    #
+    print "Starter transformering..."
+    # Convert to numpy array
+    ag = np.asarray(linestring)
+    # Extract one array for lon and one for lat
+    lon, lat = zip(*ag)
+    # Define projections
+    #fromProj = pyproj.Proj(init='epsg:3785')
+    fromProj = pyproj.Proj(init='epsg:4326')
+    toProj = pyproj.Proj(init='epsg:3785')
+    # Reproject the line
+    x2, y2 = pyproj.transform(fromProj, toProj, lon, lat)
+    # Create new numpy array
+    a = np.array(zip(x2,y2))
+    # Recreate linestring
+    projectedLinestrings = asLineString(a)
+    print "Slutt transformering..."
+    
             
     # Calculate area in image to get
     # Get bounding box of area
-    bbox = linestring.bounds 
+    bbox = projectedLinestrings.bounds 
     # Expand the bounding box with 200 meter on each side
     ulx = bbox[0]-200 
     uly = bbox[3]-200
     lrx = bbox[2]+200
     lry = bbox[1]+200
+    
+    print projectedLinestrings.bounds
   
     gt, band_array = createRasterArray(ulx, uly, lrx, lry)
     
@@ -465,6 +549,9 @@ def calcElev(linestring):
     ny, nx = z.shape
     xmin, xmax = ax[0], ax[nx-1] #ax[5136] 
     ymin, ymax = ay[ny-1], ay[0] #ay[5144], ay[0]
+    
+    print pointArrayX[0]
+    print pointArrayY[0]
     
     # Turn these into arrays of x & y coords
     xi = np.array(pointArrayX, dtype=np.float)
