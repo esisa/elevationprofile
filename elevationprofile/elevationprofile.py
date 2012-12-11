@@ -21,10 +21,13 @@ import numpy as np
 import pyproj
 import random
 
-
+import optparse
+import logging
+import logging.handlers
 
 from flask import Flask, request, redirect, jsonify, make_response
 
+LOGGER = logging.getLogger('elevationprofile')
 
 """
 @app.route('/elevationprofile.kml', methods = ['POST'])
@@ -78,10 +81,12 @@ def elevation_profile_wkt():
 def elevation_profile_json():
     
     if request.headers['Content-Type'] == 'application/x-www-form-urlencoded; charset=UTF-8':
+        print str(request.form.keys()[0])
         try:
             multilinestrings = shape(geojson.loads(str(request.form.keys()[0])))
-            linestring = multilinestrings[0] #linemerge(multilinestrings)
+            linestring = multilinestrings #multilinestrings[0] #linemerge(multilinestrings)
         except:
+            print "Ikke gyldig"
             return "Ikke gyldig GeoJSON"
         
         res = make_response(calcElevProfile(linestring))
@@ -135,11 +140,6 @@ def calcElevProfile(linestrings):
     # Smooth graph
     elevArray = smoothList(elevArray, 7)  
         
-    # Make sure we start at lowest point on relation
-    # Reverse array if last elevation is lower than first elevation
-    if(elevArray[0]>elevArray[len(elevArray)-1]):
-        elevArray = elevArray[::-1]
-        
     features = []
     for i in range(len(elevArray)):
         geom = {'type': 'Point', 'coordinates': [pointX[i],pointY[i]]}
@@ -178,215 +178,7 @@ def smoothList(x,window_len=7,window='hanning'):
     return y[window_len:-window_len+1]
 
     
-"""    
-def createLineGraph(linestrings):
-
-    # Size of final image
-    pngWidth = 3 
-    pngHeight = 2 
-    
-    # Array holding information used in graph
-    distArray = []
-    elevArray = []
-    pointX = []
-    pointY = []
-    
-    # Calculate elevations
-    distArray, elevArray, pointX, pointY = calcElev(linestrings)    
-    
-    # Instantiate figure
-    fig = plt.figure(num=None, figsize=(pngWidth, pngHeight), dpi=50)
-    ax = fig.add_subplot(111)
-    plt.grid(True)
-    
-    # Textlabels
-    plt.xlabel(ur'Avstand p\u00E5 turen ', fontsize=10) #xlabel("\u00B0/Avstand på turen")
-    plt.ylabel(ur'Antall h\u00F8ydemeter' , fontsize=10)
-
-    # Create the plot
-    ax.plot(distArray, elevArray)
-    
-    # Create custom ticks along plot
-    locs, labels = plt.xticks()
-    newLabels = []
-    steps = 5
-    distance = max(distArray)
-    newLabels.append('') # First label in empty
-    if distance>20000:
-        for i in range(len(locs)):
-            label = steps #int(labels[i])/1000
-            newLabels.append(str(label) + 'km')
-            steps = steps + 5
-         
-        plt.xticks(locs, newLabels )
-        #plt.xticks(locs, ['', '5km','10km','15km','20km','25km', '30km'] )
-    else:
-        # Make different ticks depending on length of route
-        if distance<2001:
-            graphStep = 0.5
-        elif distance > 2000 and distance<4000:
-            graphStep = 1
-        else:
-            graphStep = 4
-        steps = 0
-        locSteps = 0
-        newLocs = []
-        newLocs.append(0)
-        while locSteps<distance:
-            steps = steps + graphStep
-            locSteps = locSteps + graphStep*1000
-            newLabels.append(str(steps) + 'km')
-            newLocs.append(locSteps)
-        plt.xticks(newLocs, newLabels )
-        
-        
-    # Make sure there is some room around the graph
-    # And make sure y=0 is always minimum y value    
-    heightDiff = max(elevArray) - min(elevArray)
-    heightBuffer = 0.6 * heightDiff
-    minGraphBuffer = min(elevArray)-(0.1 * heightDiff)
-    heightBuffer = (0.5 * heightDiff)
-    if heightBuffer>250: # Make sure buffer is not too big 
-        heightBuffer = 250 
-    maxGraphBuffer = max(elevArray) + heightBuffer
-    if minGraphBuffer<0: # Make sure graph starts at zero
-        minGraphBuffer = 0
-    ax.set_ylim(minGraphBuffer,maxGraphBuffer) 
-        
-    # Save image
-    randomNum = int(random.random()*100000000)
-    filename = settings.ELEVATION_PROFILE_TMP_DIR + "/elev_"+ str(randomNum) +".png"
-    plt.savefig(filename, bbox_inches='tight', facecolor='#ecece9', edgecolor='none')
-   
-    return filename
- 
-"""
-    
-def createMultiLineGraph(linestrings):
-    
-    """
-    #argWidth = request.args.getlist("width")
-    pngWidth = 3#int(argWidth[0])/100
-    #argHeight = request.args.getlist("height")
-    pngHeight = 2#int(argHeight[0])/100
-    
-    #linestrings = findLinestrings()
-    
-    distArray = []
-    elevSumArray = []
-    pointX = []
-    pointY = []
-    maxHeight = 0
-    minHeight = 100000
-    
-    sizeX = pngWidth
-    sizeY = pngHeight
-    
-    fig = plt.figure(num=None, figsize=(sizeX, sizeY), dpi=80)
-    plt.subplots_adjust(wspace=0.05)
-
-    dist = 0
-    totalPlots = len(linestrings)
-    numPlots = 0
-    plots = []
-    
-    for linestring in linestrings:
-        distArray, elevArray, _pointX, _pointY = calcElev(linestring)
-        print "Nytt array"
-        for elev in elevArray:
-            print elev
-            
-        numPlots = numPlots + 1
-        #for i in range(len(_elevArray)):
-        #    dist = dist + stepDist
-        #    distArray.append(dist)
-        #    elevArray.append(_elevArray[i])
-        #    pointX.append(_pointX[i])
-        #    pointY.append(_pointY[i])   
-    
-        _minHeight = min(elevArray)
-        if _minHeight < minHeight:
-            minHeight = _minHeight
-        _maxHeight = max(elevArray)
-        if _maxHeight > maxHeight:
-            maxHeight = _maxHeight    
-        #elevSumArray.append(elevArray)
-        plotNumber = str(1) + str(totalPlots) + str(numPlots)
-        if numPlots > 1: # Ikke første grafen
-            ax = plt.subplot(int(plotNumber), sharey=plots[0])
-        else:
-            ax = plt.subplot(int(plotNumber))
-        ax.plot(distArray, elevArray)
-        plots.append(ax)
-        plt.title("Deltur " + str(numPlots))
-        plt.grid(True)
-      
-     
-        locs, labels = plt.xticks()
-        newLabels = []
-        steps = 5
-        distance = max(distArray)
-        print "Distance: " +  str(distance)
-        newLabels.append('') # First label in empty
-        if distance>20000:
-            for i in range(len(locs)):
-                label = steps #int(labels[i])/1000
-                newLabels.append(str(label) + 'km')
-                steps = steps + 5
-             
-            plt.xticks(locs, newLabels )
-            #plt.xticks(locs, ['', '5km','10km','15km','20km','25km', '30km'] )
-        else:
-            if distance>0 and distance<1000:
-                graphStep = 0.2
-            elif distance>1000 and distance<2000:
-                graphStep = 0.5
-            elif distance>2000 and distance<4000:
-                graphStep = 0.5
-            elif distance>4000 and distance<1000000000:
-                    graphStep = 2           
-            steps = 0
-            locSteps = 0
-            newLocs = []
-            newLocs.append(0)
-            while locSteps<distance:
-                steps = steps + graphStep
-                locSteps = locSteps + graphStep*1000
-                newLabels.append(str(steps) + 'km')
-                newLocs.append(locSteps)
-                #print str(locSteps) + " " +  str(steps)
-            plt.xticks(newLocs, newLabels )
-           
-        
-        
-    print "maxHeight " + str(maxHeight)    
-    print "minHeight " + str(minHeight)    
-    heightDiff = maxHeight - minHeight
-    heightBuffer = 0.6 * heightDiff
-    minGraphBuffer = minHeight-(0.1 * heightDiff)
-    heightBuffer = (0.5 * heightDiff)
-    if heightBuffer>250: # Make sure buffer is not too big 
-        heightBuffer = 250 
-    maxGraphBuffer = maxHeight + heightBuffer
-    if minGraphBuffer<0: # Make sure graph starts at zero
-        minGraphBuffer = 0
-    ax.set_ylim(minGraphBuffer,maxGraphBuffer) 
-    
-    for i in range(len(plots)):
-        yticklabels = plots[i].get_yticklabels()
-        plt.setp(yticklabels, visible=False)    
-    
-    yticklabels = plots[0].get_yticklabels()
-    plt.setp(yticklabels, visible=True)    
-    
-    
-    plt.savefig('elev.png', bbox_inches='tight')
-    """
-    
-    filename = settings.ELEVATION_PROFILE_ERROR_IMG
-    
-    return filename
-    
+  
 def convertGeoLocationToPixelLocation(X, Y, imageData):
     g0, g1, g2, g3, g4, g5 = imageData.GetGeoTransform()
     xGeo, yGeo =  X, Y
@@ -402,6 +194,8 @@ def createRasterArray(ulx, uly, lrx, lry):
     
     source = gdal.Open("data/norge_utsnitt_900913.vrt")
     gt = source.GetGeoTransform()
+    
+    print ulx, uly, lrx, lry
     
     # Calculate pixel coordinates
     upperLeftPixelX, upperLeftPixelY = convertGeoLocationToPixelLocation(ulx, uly, source)
@@ -527,13 +321,15 @@ def calcElev(linestring):
     bbox = projectedLinestrings.bounds 
     # Expand the bounding box with 200 meter on each side
     ulx = bbox[0]-200 
-    uly = bbox[3]-200
+    uly = bbox[3]+200
     lrx = bbox[2]+200
-    lry = bbox[1]+200
+    lry = bbox[1]-200
     
     print projectedLinestrings.bounds
   
     gt, band_array = createRasterArray(ulx, uly, lrx, lry)
+    
+    print "Lengde: " + str(len(band_array))
     
     nx = len(band_array[0])
     ny = len(band_array)
@@ -576,7 +372,16 @@ def calcElev(linestring):
     return (distArray, elev, pointArrayX, pointArrayY)
     
 if __name__ == "__main__":
-    app.debug = True
+    parser = optparse.OptionParser()
+    parser.add_option('-d', '--debug', dest='debug', default=False,
+                      help='turn on Flask debugging', action='store_true')
+
+    options, args = parser.parse_args()
+
+    if options.debug:
+        LOGGER.info('Running in debug mode')
+        app.debug = True
+        print "Debug mode"
+    else:
+        LOGGER.info('Running in production mode')
     app.run()
-
-
