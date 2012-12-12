@@ -28,7 +28,7 @@ import logging.handlers
 from flask import Flask, request, redirect, jsonify, make_response
 
 LOGGER = logging.getLogger('elevationprofile')
-DEM_FILE="data/norge_utsnitt_900913.vrt" # Should be moved to a settingsfile
+DEM_FILE="../data/norge_utsnitt_900913.vrt" # Should be moved to a settingsfile
 
 """
 @app.route('/elevationprofile.kml', methods = ['POST'])
@@ -182,8 +182,6 @@ def createRasterArray(ulx, uly, lrx, lry):
     source = gdal.Open(DEM_FILE)
     gt = source.GetGeoTransform()
     
-    print ulx, uly, lrx, lry
-    
     # Calculate pixel coordinates
     upperLeftPixelX, upperLeftPixelY = convertGeoLocationToPixelLocation(ulx, uly, source)
     lowerRightPixelX, lowerRightPixelY = convertGeoLocationToPixelLocation(lrx, lry, source)
@@ -204,7 +202,7 @@ def calcElev(linestring):
     #
     # Convert line to spherical mercator
     #
-    print "Starter transformering..."
+    #print "Starter transformering..."
     # Convert to numpy array
     ag = np.asarray(linestring)
     # Extract one array for lon and one for lat
@@ -220,7 +218,7 @@ def calcElev(linestring):
     # Recreate linestring
     projectedLinestrings = asLineString(a)
     #print projectedLinestrings.length
-    print "Slutt transformering..."
+    #print "Slutt transformering..."
     #
     # Set distance for interpolation on line according to length of route
     # - projectedLinestrings.length defines length of route in meter 
@@ -247,19 +245,8 @@ def calcElev(linestring):
     # Trur ikke multilinestringer kommer inn her lenger
     # så koden kan sannsynligvis fjernes
     
-    print "Starter interpolering..."
-    if(projectedLinestrings.geom_type == "MultiLineString"):
-        for linestring in projectedLinestrings:
-            while step<linestring.length+stepDist:
-                point =  linestring.interpolate(step)
-                # Project back to spherical mercator coordinates
-                x, y = pyproj.transform(toProj, pyproj.Proj(init='epsg:3785'), point.x, point.y)
-                #x, y = point.x, point.y
-                pointArrayX.append(x)
-                pointArrayY.append(y)
-                distArray.append(step)
-                step = step + stepDist
-    elif(projectedLinestrings.geom_type == "LineString"):
+    #print "Starter interpolering..."
+    if(projectedLinestrings.geom_type == "LineString"):
         #linestring = projectedLinestrings
         while step<projectedLinestrings.length+stepDist:
             point =  projectedLinestrings.interpolate(step)
@@ -270,8 +257,7 @@ def calcElev(linestring):
             pointArrayY.append(y)
             distArray.append(step)
             step = step + stepDist
-    print "Slutt interpolering..."
-    print len(distArray)
+    #print "Slutt interpolering..."
     
     """    
     for coords in projectedLinestrings.coords:
@@ -285,7 +271,7 @@ def calcElev(linestring):
     #
     # Convert line to spherical mercator
     #
-    print "Starter transformering..."
+    #print "Starter transformering..."
     # Convert to numpy array
     ag = np.asarray(linestring)
     # Extract one array for lon and one for lat
@@ -300,7 +286,7 @@ def calcElev(linestring):
     a = np.array(zip(x2,y2))
     # Recreate linestring
     projectedLinestrings = asLineString(a)
-    print "Slutt transformering..."
+    #print "Slutt transformering..."
     
             
     # Calculate area in image to get
@@ -311,12 +297,9 @@ def calcElev(linestring):
     uly = bbox[3]+200
     lrx = bbox[2]+200
     lry = bbox[1]-200
-    
-    print projectedLinestrings.bounds
   
     gt, band_array = createRasterArray(ulx, uly, lrx, lry)
     
-    print "Lengde: " + str(len(band_array))
     
     nx = len(band_array[0])
     ny = len(band_array)
@@ -332,9 +315,7 @@ def calcElev(linestring):
     ny, nx = z.shape
     xmin, xmax = ax[0], ax[nx-1] #ax[5136] 
     ymin, ymax = ay[ny-1], ay[0] #ay[5144], ay[0]
-    
-    print pointArrayX[0]
-    print pointArrayY[0]
+
     
     # Turn these into arrays of x & y coords
     xi = np.array(pointArrayX, dtype=np.float)
