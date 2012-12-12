@@ -28,6 +28,7 @@ import logging.handlers
 from flask import Flask, request, redirect, jsonify, make_response
 
 LOGGER = logging.getLogger('elevationprofile')
+DEM_FILE="data/norge_utsnitt_900913.vrt" # Should be moved to a settingsfile
 
 """
 @app.route('/elevationprofile.kml', methods = ['POST'])
@@ -79,23 +80,9 @@ def elevation_profile_wkt():
 
 @app.route('/elevationprofile.json', methods = ['POST'])
 def elevation_profile_json():
-    
-    if request.headers['Content-Type'] == 'application/x-www-form-urlencoded; charset=UTF-8':
-        print str(request.form.keys()[0])
-        try:
-            multilinestrings = shape(geojson.loads(str(request.form.keys()[0])))
-            linestring = multilinestrings #multilinestrings[0] #linemerge(multilinestrings)
-        except:
-            print "Ikke gyldig"
-            return "Ikke gyldig GeoJSON"
-        
-        res = make_response(calcElevProfile(linestring))
-        res.headers['Access-Control-Allow-Origin']='*'
-        res.headers['Access-Control-Allow-Methods']='GET,POST,OPTIONS'
-        res.headers['Access-Control-Allow-Headers']='content-type'
-        return res
-        
-    elif request.headers['Content-Type'] == 'application/json':   
+
+    # Firefox adds charset automatically    
+    if request.headers['Content-Type'] == 'application/json' or request.headers['Content-Type'] == 'application/json; charset=UTF-8':   
         try:
             linestring = shape(request.json)
         except:
@@ -192,7 +179,7 @@ def convertGeoLocationToPixelLocation(X, Y, imageData):
 
 def createRasterArray(ulx, uly, lrx, lry):
     
-    source = gdal.Open("data/norge_utsnitt_900913.vrt")
+    source = gdal.Open(DEM_FILE)
     gt = source.GetGeoTransform()
     
     print ulx, uly, lrx, lry
