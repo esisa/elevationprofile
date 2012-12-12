@@ -101,19 +101,13 @@ def elevation_profile_test():
     lat = 59.57127
     lon2 = 11.22460
     lat2 = 59.55879
-    fromProj = pyproj.Proj(init='epsg:4326')
-    toProj = pyproj.Proj(init='epsg:3785')
-    x1, y1 = pyproj.transform(fromProj, toProj, lon, lat)
-    x2, y2 = pyproj.transform(fromProj, toProj, lon2, lat2)
-    linestrings = LineString([(x1, y1), (x2, y2)])
+    linestrings = LineString([(lon, lat), (lon2, lat2)])
 
     return calcElevProfile(linestrings)
 
    
 ## Start calculation and creates geojson result    
 def calcElevProfile(linestrings):
-    
-    print "calcElevProfile"
     
     # Array holding information used in graph
     distArray = []
