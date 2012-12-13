@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+	
+	<style>
+		
+	#elevationProfile {
+    	width: 500px;
+   	 	height: 300px;
+		margin: 40px;
+	}
+	
+	</style>
+	
+	
+	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="js/jquery.flot.js"></script>
+    <script language="javascript" type="text/javascript" src="js/jquery.flot.crosshair.js"></script>
+    <script language="javascript" type="text/javascript" src="js/jquery.flot.axislabels.js"></script>
+	
+	<script language="javascript" type="text/javascript">
+	
+	
+	// Get example GeoJSON file
+	$.getJSON("example.geojson", function(file_geojson) {
+	
+		// Request elevation profile
+	   	$.ajax({
+		      url: "http://verktoy.kresendo.no/elevProfile/elevationprofile.json",
+		      dataType: 'json',
+		      type: 'post',
+			  //contentType: "application/json",
+		      data: JSON.stringify(file_geojson),
+		      success: setElevationProfile
+		});
+			   
+		   var graphData = new Array();
+		   function setElevationProfile(data) {
+               
+			    // Get features    
+			    geoJson = data.features;
+			   
+		        // Go through each point
+		        $.each(data.features, function(index, value) { 
+		            elev = value.properties.elev;
+		            // Check for negative values. The graph does not draw null values
+		            if(elev < 0) { 
+		                elev = null;
+		            }
+		            tmp = [value.properties.distance, elev];
+		            graphData.push(tmp);
+		        });
+
+		        /*
+		         Create ticks according to length of route.
+		          - routeLenght defines length of route in meter  
+		          - graphStep defines how often x-ticks is set on the graph.
+		            If graphStep=2, there is 2km between each x-tick on the graph. 
+		          Just change the if/else if you want different x-ticks
+		        */   
+		        var routeLength = data.features[data.features.length-1].properties.distance;
+		        var graphStep;
+		        if(routeLength<1001)
+		            graphStep = 0.2;
+		        else if(routeLength<2001)
+		            graphStep = 0.5;
+		        else if(routeLength > 2000 && routeLength<=4000)
+		            graphStep = 1;
+		        else if(routeLength > 4000 && routeLength<6000)
+		            graphStep = 2;
+		        else
+		            graphStep = 4;
+		        steps = 0
+		        locSteps = 0
+		        var xTicks = new Array();
+		        while(locSteps<routeLength) {
+		            steps = steps + graphStep;
+		            locSteps = locSteps + graphStep*1000;
+		            xTicks.push([locSteps, steps + ' km']);
+		        }
+
+				
+		        // Add plot to DOM
+			    plot = $.plot($("#elevationProfile"),
+		                [ { data: graphData, color: 'blue'}], {
+		                xaxes: [{axisLabel: "Avstand"}],
+		                yaxes: [{axisLabel: "H&oslash;yde"}],
+		            	   xaxis: {
+		               	   show: true,
+		               	   ticks: xTicks
+		               },
+		                series: {
+		                    lines: { show: true },
+		                    points: { show: false }
+		                },
+		                crosshair: { mode: "x" },
+		                grid: { hoverable: true, autoHighlight: false },
+		          });
+					 
+		   }
+   
+   });
+	</script>
+</head>
+
+<body>
+	<div id="elevationProfile"></div>	
+</body>
+
+</html>
