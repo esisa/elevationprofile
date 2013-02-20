@@ -119,7 +119,8 @@ def calcElevProfile(linestrings):
     distArray, elevArray, pointX, pointY = calcElev(linestrings)  
         
     # Smooth graph
-    elevArray = smoothList(elevArray, 7)  
+    if(len(elevArray)>7):
+        elevArray = smoothList(elevArray, 7)  
         
     features = []
     for i in range(len(elevArray)):
