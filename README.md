@@ -3,7 +3,7 @@ A simple app to calculate elevation profiles
 Installation
 ============
 
-elevationprofile uses the Python Flask framework and a handful of other python modules. See `elevationprofile.py` for the modules needed, and use [pip](https://pypi.python.org/pypi/pip) to install them. You may use the provided `runserver.wsgi` to "connect" the app with your webserver.
+elevationprofile uses the Python Flask framework and a handful of other python modules. See `elevationprofile.py` for the modules needed, and use [pip](https://pypi.python.org/pypi/pip) to install them. You may use the provided `runserver.wsgi` to "connect" the app with your webserver or run `elevationprofile.py --debug` to start testing and debugging. 
 
 Usage
 =====
@@ -11,9 +11,6 @@ Usage
 Raster files should be added in the `demdata` directory.
 
 Test using curl:
-
-Start server like this:
-python elevationprofile.py --debug
 
 curl -H "Content-type: application/json" -X POST http://localhost:5000/elevationprofile.json -d @example/example.geojson
 
