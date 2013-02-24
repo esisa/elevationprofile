@@ -28,7 +28,7 @@ import logging.handlers
 from flask import Flask, request, redirect, jsonify, make_response
 
 LOGGER = logging.getLogger('elevationprofile')
-DEM_FILE="../data/norge_utsnitt_900913.vrt" # Should be moved to a settingsfile
+DEM_FILE="../demdata/norge_utsnitt_900913.vrt" # Should be moved to a settingsfile
 
 """
 @app.route('/elevationprofile.kml', methods = ['POST'])

@@ -1,9 +1,14 @@
+A simple app to calculate elevation profiles
+
+Installation
+============
+
+elevationprofile uses the Python Flask framework and a handful of other python modules. See `elevationprofile.py` for the modules needed, and use [pip](https://pypi.python.org/pypi/pip) to install them. You may use the provided `runserver.wsgi` to "connect" the app with your webserver.
+
 Usage
 =====
 
-A simple app to calculate elevation profiles
-
-Raster files should be added in data directory
+Raster files should be added in the `demdata` directory.
 
 Test using curl:
 
@@ -16,6 +21,7 @@ curl -H "Content-type: text/plain" -X POST http://localhost:5000/elevationprofil
 
 Example use
 ===========
+
 A web service running this code is available at [kresendo.no](http://verktoy.kresendo.no/hoydeprofil.html), and [turkompisen.no](http://turkompisen.no) an example of an application using it.
 
 
