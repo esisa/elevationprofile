@@ -27,42 +27,58 @@ import logging.handlers
 
 from flask import Flask, request, redirect, jsonify, make_response
 
-import psycopg2
-
 LOGGER = logging.getLogger('elevationprofile')
 DEM_FILE="../demdata/norge_utsnitt_900913.vrt" # Should be moved to a settingsfile
 
-pg_db = "turkompisen_test"
-pg_host = "localhost"
-pg_user = "turkompisen"
-#pg_passwd = "skogkart01u"
-pg_port = "5432"
+"""
+@app.route('/elevationprofile.kml', methods = ['POST'])
+def elevation_profile_wkt():
+    
+    if request.headers['Content-Type'] == 'text/plain':
+        
+        try:
+            linestrings = wkt.loads(request.data)
+        except:
+            return "Ikke gyldig KML"
+        
+        return calcElevProfile(linestrings)
+        
+    else:
+        return "Feil format!"  
 
-def calcLevels():
-    try:
-        conn = psycopg2.connect("dbname="+pg_db+" user="+pg_user+" host="+pg_host+" ")
-    except:
-        print "Could not connect to database " + pg_db
+@app.route('/elevationprofile.gpx', methods = ['POST'])
+def elevation_profile_wkt():
+    
+    if request.headers['Content-Type'] == 'text/plain':
+        
+        try:
+            linestrings = wkt.loads(request.data)
+        except:
+            return "Ikke gyldig GPX"
+        
+        return calcElevProfile(linestrings)
+        
+    else:
+        return "Feil format!"    
+"""
 
-    curKomm = conn.cursor()
-    sqlKomm = "SELECT ST_asgeojson(way) FROM bike_levels limit 1"
+@app.route('/elevationprofile.wkt', methods = ['POST'])
+def elevation_profile_wkt():
+    
+    if request.headers['Content-Type'] == 'text/plain':
+        
+        try:
+            linestring = wkt.loads(request.data)
+        except:
+            return "Ikke gyldig WKT"
+            
+        return calcElevProfile(linestring)
+        
+    else:
+        return "Feil format!"    
 
-    curKomm.execute(sqlKomm)          
-    geojson = curKomm.fetchone()
 
-    geojson2 = '''{
-    "type": "LineString",
-    "coordinates": [
-                    [10.551269375141, 59.796755011192],
-                    [10.386474453266, 59.785768683067],
-                    [10.348022304829, 59.719850714317],
-                    [10.260131679829, 59.648439581505]
-                    ]
-    }'''
-    linestring = shape(json.loads(geojson[0]))
-    print linestring.length
-    #print json.dumps(geojson)
-
+@app.route('/elevationprofile.json', methods = ['POST'])
 def elevation_profile_json():
 
     # Firefox adds charset automatically    
@@ -77,6 +93,7 @@ def elevation_profile_json():
         
 
 
+@app.route("/elevationprofile.test")
 def elevation_profile_test():
   
     # Test code to test custom linestring
@@ -316,5 +333,18 @@ def calcElev(linestring):
     elev = map_coordinates(z, [yi, xi], order=1)
 
     return (distArray, elev, pointArrayX, pointArrayY)
-   
-calcLevels() 
+    
+if __name__ == "__main__":
+    parser = optparse.OptionParser()
+    parser.add_option('-d', '--debug', dest='debug', default=False,
+                      help='turn on Flask debugging', action='store_true')
+
+    options, args = parser.parse_args()
+
+    if options.debug:
+        LOGGER.info('Running in debug mode')
+        app.debug = True
+        print "Debug mode"
+    else:
+        LOGGER.info('Running in production mode')
+    app.run()
